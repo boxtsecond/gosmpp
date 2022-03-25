@@ -48,16 +48,6 @@ func GenMsgID(sequenceNum uint32) string {
 	return fmt.Sprintf("%02d%s", sec, seqStr)
 }
 
-func UnpackMsgId(msgId string) string {
-	spId, _ := strconv.ParseUint(msgId[:6], 16, 24)
-	month, _ := strconv.ParseUint(msgId[6:8], 10, 8)
-	day, _ := strconv.ParseUint(msgId[8:10], 10, 8)
-	hour, _ := strconv.ParseUint(msgId[10:12], 10, 8)
-	min, _ := strconv.ParseUint(msgId[12:14], 10, 8)
-	seqNum, _ := strconv.ParseUint(msgId[14:], 16, 24)
-	return fmt.Sprintf("spId: %s, month: %d, day: %d, hour: %d, min: %d, seqNum: %d, ", NewOctetString(strconv.Itoa(int(spId))).FixedString(6), month, day, hour, min, seqNum)
-}
-
 func Utf8ToUcs2(in string) (string, error) {
 	if !utf8.ValidString(in) {
 		return "", errors.New("invalid utf8 runes")
