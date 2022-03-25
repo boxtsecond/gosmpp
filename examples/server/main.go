@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"time"
@@ -15,24 +16,24 @@ const (
 	spId     string = "123456"
 )
 
-func handleLogin(r *server.Response, p *server.Packet, l *log.Logger) (bool, error) {
+func handleLogin(r *server.Response, p *server.Packet) (bool, error) {
 	req, ok := p.Packer.(*pkg.SmppBindTransceiverReqPkt)
 	if !ok {
 		return true, nil
 	}
 
-	l.Println("remote addr:", p.Conn.Conn.RemoteAddr().(*net.TCPAddr).IP.String())
+	fmt.Println("remote addr:", p.Conn.Conn.RemoteAddr().(*net.TCPAddr).IP.String())
 	resp := r.Packer.(*pkg.SmppBindTransceiverRespPkt)
 
 	if req.SystemID != user {
 		resp.Status = pkg.ESME_RINVSYSID
-		l.Println("handleLogin SystemID error:", resp.Status.Error())
+		fmt.Println("handleLogin SystemID error:", resp.Status.Error())
 		return false, resp.Status.Error()
 	}
 
 	if req.Password != password {
 		resp.Status = pkg.ESME_RINVPASWD
-		l.Println("handleLogin Password error:", resp.Status.Error())
+		fmt.Println("handleLogin Password error:", resp.Status.Error())
 		return false, resp.Status.Error()
 	}
 
@@ -42,16 +43,16 @@ func handleLogin(r *server.Response, p *server.Packet, l *log.Logger) (bool, err
 	return false, nil
 }
 
-func handleSubmit(r *server.Response, p *server.Packet, l *log.Logger) (bool, error) {
+func handleSubmit(r *server.Response, p *server.Packet) (bool, error) {
 	req, ok := p.Packer.(*pkg.SmppSubmitReqPkt)
 	if !ok {
 		return true, nil
 	}
 
 	resp := r.Packer.(*pkg.SmppSubmitRespPkt)
-	resp.MsgID, _ = pkg.GenMsgID(spId, <-p.Conn.SequenceNum)
+	resp.MsgID = pkg.GenMsgID(<-p.Conn.SequenceNum)
 	deliverPkgs := make([]*pkg.SmppDeliverReqPkt, 0)
-	l.Printf("handleSubmit: handle submit from %s ok! msgid[%s], destTerminalId[%s]\n",
+	fmt.Printf("handleSubmit: handle submit from %s ok! msgid[%s], destTerminalId[%s]\n",
 		req.SourceAddr, resp.MsgID, req.DestinationAddr)
 
 	t := pkg.GenNowTimeYYStr()
@@ -114,6 +115,7 @@ func main() {
 	err := server.ListenAndServe(":8890",
 		pkg.VERSION,
 		5*time.Second,
+		3*time.Second,
 		3,
 		nil,
 		handlers...,

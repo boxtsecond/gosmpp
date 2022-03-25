@@ -13,9 +13,10 @@ const (
 // DataCoding
 // 短消息内容体的编码格式
 const (
-	ASCII  = 0 // ASCII编码
-	BINARY = 4 // 二进制短消息
-	UCS2   = 8 // UCS2编码
+	ASCII   = 0  // ASCII编码
+	BINARY  = 4  // 二进制短消息
+	UCS2    = 8  // UCS2编码
+	GB18030 = 15 // GB18030编码
 )
 
 const (

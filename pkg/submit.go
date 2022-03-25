@@ -2,6 +2,8 @@ package pkg
 
 import (
 	"bytes"
+	"encoding/binary"
+	"errors"
 	"fmt"
 )
 
@@ -146,6 +148,48 @@ func (p *SmppSubmitReqPkt) String() string {
 	return b.String()
 }
 
+type SmppSubmitContentHeaderReqPkg struct {
+	LastProtocolLen uint8
+	UniqueIdLen     uint8
+	LastLen         uint8
+	UniqueId        uint16 //6位header时 1byte 7位header时 2byte
+	PkTotal         uint8
+	PkNumber        uint8
+}
+
+func GetSubmitMsgHeader(msgContent []byte) (*SmppSubmitContentHeaderReqPkg, error) {
+	header := &SmppSubmitContentHeaderReqPkg{}
+	r := newPkgReader(msgContent)
+	r.ReadInt(binary.BigEndian, &header.LastProtocolLen)
+	r.ReadInt(binary.BigEndian, &header.UniqueIdLen)
+	r.ReadInt(binary.BigEndian, &header.LastLen)
+
+	// 获取长短信header信息
+	if header.LastProtocolLen == 5 { // 6位协议头
+		if header.LastLen == 3 && header.UniqueIdLen == 0 {
+			uniqueId := make([]byte, 1)
+			r.ReadBytes(uniqueId)
+			header.UniqueId = uint16(uniqueId[0])
+			r.ReadInt(binary.BigEndian, &header.PkTotal)
+			r.ReadInt(binary.BigEndian, &header.PkNumber)
+		}
+	} else if header.LastProtocolLen == 6 { // 7位协议头
+		if header.LastLen == 4 && header.UniqueIdLen == 8 {
+			r.ReadInt(binary.BigEndian, &header.UniqueId)
+			r.ReadInt(binary.BigEndian, &header.PkTotal)
+			r.ReadInt(binary.BigEndian, &header.PkNumber)
+		}
+	} else {
+		return header, errors.New("msg header len illegal")
+	}
+
+	if header.PkNumber == 0 || header.PkNumber > header.PkTotal {
+		return header, errors.New("msg header len illegal")
+	}
+
+	return header, r.Error()
+}
+
 type SmppSubmitRespPkt struct {
 	MsgID string
 
@@ -155,7 +199,7 @@ type SmppSubmitRespPkt struct {
 }
 
 func (p *SmppSubmitRespPkt) Pack(seqId uint32) ([]byte, error) {
-	msgId := NewCOctetString(p.MsgID).Byte(65)
+	msgId := NewCOctetString(p.MsgID).Byte(11)
 	var commandLength = HeaderPktLen + uint32(len(msgId))
 
 	var w = newPkgWriter(commandLength)
@@ -177,7 +221,7 @@ func (p *SmppSubmitRespPkt) Unpack(data []byte) error {
 	var r = newPkgReader(data)
 
 	// Body: MsgID
-	msgId := r.ReadOCString(65)
+	msgId := r.ReadOCString(11)
 	p.MsgID = string(msgId)
 	return r.Error()
 }

@@ -2,8 +2,6 @@ package pkg
 
 import (
 	"bytes"
-	"crypto/md5"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -23,6 +21,10 @@ func GenTimestamp() uint32 {
 	return uint32(i)
 }
 
+func GenTimestampYYStr(t int64) string {
+	return time.Unix(t, 0).Format("0601021504")
+}
+
 func GenNowTimeYYYYStr() string {
 	s := time.Now().Format("20060102150405")
 	return s
@@ -32,77 +34,18 @@ func GenNowTimeYYStr() string {
 	return time.Unix(time.Now().Unix(), 0).Format("0601021504")
 }
 
-// 生成客户端认证码
-// 其值通过单向MD5 hash计算得出，表示如下：
-// AuthenticatorClient =MD5（ClientID+7 字节的二进制0（0x00） + Shared secret+Timestamp）
-// Shared secret 由服务器端与客户端事先商定，最长15字节。
-// 此处Timestamp格式为：MMDDHHMMSS（月日时分秒），经TimeStamp字段值转换成字符串，转换后右对齐，左补0x30得到。
-// 例如3月1日0时0分0秒，TimeStamp字段值为0x11F0E540，此处为0301000000。
-func GenAuthenticatorClient(clientId, secret string, timestamp uint32) ([]byte, error) {
-	buf := new(bytes.Buffer)
-
-	buf.WriteString(clientId)
-	buf.Write([]byte{0, 0, 0, 0, 0, 0, 0})
-	buf.WriteString(secret)
-	buf.WriteString(fmt.Sprintf("%010d", timestamp))
-
-	h := md5.New()
-	_, err := h.Write(buf.Bytes())
-	if err != nil {
-		return nil, err
-	}
-
-	return h.Sum(nil), nil
-}
-
-// 生成服务端认证码
-// Login服务器端返回给客户端的认证码，当客户端认证出错时，此项为空。
-// 其值通过单向MD5 hash计算得出，表示如下：
-// AuthenticatorServer =MD5（Status+AuthenticatorClient + Shared secret）
-// Shared secret 由服务器端与客户端事先商定,最长15字节AuthenticatorClient为客户端发送给服务器端的Login中的值。参见6.2.2节。
-func GenAuthenticatorServer(status Status, secret, AuthenticatorClient string) ([]byte, error) {
-	buf := new(bytes.Buffer)
-	b := make([]byte, 8)
-	binary.LittleEndian.PutUint32(b, uint32(status))
-	buf.Write(b)
-	buf.WriteString(AuthenticatorClient)
-	buf.WriteString(secret)
-
-	h := md5.New()
-	_, err := h.Write(buf.Bytes())
-	if err != nil {
-		return nil, err
-	}
-
-	return h.Sum(nil), nil
-}
-
 /*
-	生成算法(64位整数):
-	1. bit64 ~ bit39. 时间(格式为MMDDHHMMSS)
-		a. bit64~bit61  月份的二进制表示
-		b. bit60~bit56  日的二进制表示
-		c. bit55~bit51  小时的二进制表示
-		d. bit50~bit45  分钟的二进制表示
-		e. bit44~bit39  秒的二进制表示
-	2. bit38~bit17. 短信网关代码(转换为整数填充)
-	3. bit16~bit1. 序列号(顺序增加，步长为1，循环使用)
-	各部分若不能填满，左补零，右对齐
+	生成算法:
+	时间秒+序列号(顺序增加，步长为1，循环使用)
 */
-func GenMsgID(spId string, sequenceNum uint32) (string, error) {
+func GenMsgID(sequenceNum uint32) string {
 	now := time.Now()
-	month, _ := strconv.ParseInt(fmt.Sprintf("%d", now.Month()), 10, 32)
-	day := now.Day()
-	hour := now.Hour()
-	min := now.Minute()
 	sec := now.Second()
-	spIdInt, _ := strconv.ParseInt(spId, 10, 32)
-	binaryStr := fmt.Sprintf("%04b%05b%05b%06b%06b%022b%016b", month, day, hour, min, sec, spIdInt, sequenceNum)
-	msgId, err := strconv.ParseUint(binaryStr, 2, 64)
-	if err != nil {
-		return "", err
+	seqStr := fmt.Sprintf("%08d", sequenceNum)
+	if len(seqStr) > 8 {
+		seqStr = seqStr[len(seqStr)-8:]
 	}
-	return strconv.Itoa(int(msgId)), nil
+	return fmt.Sprintf("%02d%s", sec, seqStr)
 }
 
 func UnpackMsgId(msgId string) string {
@@ -161,6 +104,20 @@ func GB18030ToUtf8(in string) (string, error) {
 		return "", err
 	}
 	return string(out), nil
+}
+
+func GetUtf8Content(msgFmt uint8, msgContent string) (string, error) {
+	switch msgFmt {
+	case ASCII:
+	case BINARY:
+	case UCS2:
+		return Ucs2ToUtf8(msgContent)
+	case GB18030:
+		return GB18030ToUtf8(msgContent)
+	default:
+	}
+
+	return "", errors.New("invalid msg fmt")
 }
 
 var TpUdhiSeq byte = 0x00

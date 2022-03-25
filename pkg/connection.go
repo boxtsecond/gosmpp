@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"encoding/binary"
-	"fmt"
 	"io"
 	"math/rand"
 	"net"
@@ -28,16 +27,24 @@ type Conn struct {
 	done        chan<- struct{}
 }
 
+// The sequence number may range from: 0x00000001 to 0x7FFFFFFF.
 func newSequenceNumGenerator() (<-chan uint32, chan<- struct{}) {
 	out := make(chan uint32)
 	done := make(chan struct{})
 
 	go func() {
-		var i = rand.Uint32()
+		rand.Seed(time.Now().UnixNano())
+		var i = uint32(rand.Intn(0x7FFFFFFF))
+		if i == 0 {
+			i = 1
+		}
 		for {
 			select {
 			case out <- i:
 				i++
+				if i == 0 || i > 0x7FFFFFFF {
+					i = 1
+				}
 			case <-done:
 				close(out)
 				return
@@ -192,7 +199,6 @@ func (c *Conn) RecvAndUnpackPkt(timeout time.Duration) (Packer, error) {
 		return nil, ErrCommandIDNotSupported
 	}
 
-	fmt.Println(p)
 	err = p.Unpack(leftData)
 	if err != nil {
 		return nil, err

@@ -91,3 +91,7 @@ func (cli *Client) SendRspPkt(packet pkg.Packer, sequenceID uint32) error {
 func (cli *Client) RecvAndUnpackPkt(timeout time.Duration) (interface{}, error) {
 	return cli.conn.RecvAndUnpackPkt(timeout)
 }
+
+func (cli *Client) GetConn() *pkg.Conn {
+	return cli.conn
+}

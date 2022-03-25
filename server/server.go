@@ -32,13 +32,13 @@ type Response struct {
 }
 
 type Handler interface {
-	ServeSmpp(*Response, *Packet, *log.Logger) (bool, error)
+	ServeSmpp(*Response, *Packet) (bool, error)
 }
 
-type HandlerFunc func(*Response, *Packet, *log.Logger) (bool, error)
+type HandlerFunc func(*Response, *Packet) (bool, error)
 
-func (f HandlerFunc) ServeSmpp(r *Response, p *Packet, l *log.Logger) (bool, error) {
-	return f(r, p, l)
+func (f HandlerFunc) ServeSmpp(r *Response, p *Packet) (bool, error) {
+	return f(r, p)
 }
 
 type Server struct {
@@ -46,19 +46,21 @@ type Server struct {
 	Handler Handler
 
 	// protocol info
-	Version uint8
-	T       time.Duration
-	N       int32
+	Version     uint8
+	ReadTimeout time.Duration
+	T           time.Duration
+	N           int32
 
 	ErrorLog *log.Logger
 }
 
 type conn struct {
 	*pkg.Conn
-	server *Server
+	server      *Server
+	readTimeout time.Duration
 
-	// for active test
-	t       time.Duration // interval between two active tests
+	// for enquire link
+	t       time.Duration // interval between two enquire links
 	n       int32         // continuous send times when no response back
 	done    chan struct{}
 	exceed  chan struct{}
@@ -98,7 +100,7 @@ func (srv *Server) Serve(l net.Listener) error {
 }
 
 func (c *conn) readPacket() (*Response, error) {
-	readTimeout := time.Second * 2
+	readTimeout := c.readTimeout
 	i, err := c.Conn.RecvAndUnpackPkt(readTimeout)
 	if err != nil {
 		return nil, err
@@ -256,9 +258,13 @@ func (c *conn) close() {
 }
 
 func (c *conn) finishPacket(r *Response) error {
-	if _, ok := r.Packet.Packer.(*pkg.SmppEnquireLinkRespPkt); ok {
-		atomic.AddInt32(&c.counter, -1)
-		return nil
+	//if _, ok := r.Packet.Packer.(*pkg.SmppEnquireLinkRespPkt); ok {
+	//	atomic.AddInt32(&c.counter, -1)
+	//	return nil
+	//}
+
+	if r.Packet != nil {
+		atomic.StoreInt32(&c.counter, 0)
 	}
 
 	if r.Packer == nil {
@@ -282,7 +288,7 @@ func startActiveTest(c *conn) {
 				return
 			case <-t.C:
 				if atomic.LoadInt32(&c.counter) >= c.n {
-					c.server.ErrorLog.Printf("no smpp active test response returned from %v for %d times!",
+					c.server.ErrorLog.Printf("no smpp enquire link response returned from %v for %d times!",
 						c.Conn.RemoteAddr(), c.n)
 					exceed <- struct{}{}
 					break
@@ -290,7 +296,7 @@ func startActiveTest(c *conn) {
 				p := &pkg.SmppEnquireLinkReqPkt{}
 				err := c.Conn.SendPkt(p, <-c.Conn.SequenceNum)
 				if err != nil {
-					c.server.ErrorLog.Printf("send smpp active test request to %v error: %v", c.Conn.RemoteAddr(), err)
+					c.server.ErrorLog.Printf("send smpp enquire link request to %v error: %v", c.Conn.RemoteAddr(), err)
 				} else {
 					atomic.AddInt32(&c.counter, 1)
 				}
@@ -325,7 +331,7 @@ func (c *conn) serve() {
 			break
 		}
 
-		_, err = c.server.Handler.ServeSmpp(r, r.Packet, c.server.ErrorLog)
+		_, err = c.server.Handler.ServeSmpp(r, r.Packet)
 		if err1 := c.finishPacket(r); err1 != nil {
 			break
 		}
@@ -339,6 +345,7 @@ func (c *conn) serve() {
 func (srv *Server) newConn(rwc net.Conn) (c *conn, err error) {
 	c = new(conn)
 	c.server = srv
+	c.readTimeout = c.server.ReadTimeout
 	c.Conn = pkg.NewConnection(rwc, srv.Version)
 	c.Conn.SetState(pkg.CONNECTION_CONNECTED)
 	c.n = c.server.N
@@ -357,7 +364,7 @@ func (srv *Server) listenAndServe() error {
 	return srv.Serve(tcpKeepAliveListener{ln.(*net.TCPListener)})
 }
 
-func ListenAndServe(addr string, version uint8, t time.Duration, n int32, logWriter io.Writer, handlers ...Handler) error {
+func ListenAndServe(addr string, version uint8, t, readTimeout time.Duration, n int32, logWriter io.Writer, handlers ...Handler) error {
 	if addr == "" {
 		return ErrEmptyServerAddr
 	}
@@ -367,9 +374,9 @@ func ListenAndServe(addr string, version uint8, t time.Duration, n int32, logWri
 	}
 
 	var handler Handler
-	handler = HandlerFunc(func(r *Response, p *Packet, l *log.Logger) (bool, error) {
+	handler = HandlerFunc(func(r *Response, p *Packet) (bool, error) {
 		for _, h := range handlers {
-			next, err := h.ServeSmpp(r, p, l)
+			next, err := h.ServeSmpp(r, p)
 			if err != nil || !next {
 				return next, err
 			}
@@ -380,9 +387,14 @@ func ListenAndServe(addr string, version uint8, t time.Duration, n int32, logWri
 	if logWriter == nil {
 		logWriter = os.Stderr
 	}
-	server := &Server{Addr: addr, Handler: handler, Version: version,
-		T: t, N: n,
-		ErrorLog: log.New(logWriter, "smpp server: ", log.LstdFlags)}
+	server := &Server{
+		Addr:        addr,
+		Handler:     handler,
+		Version:     version,
+		ReadTimeout: readTimeout,
+		T:           t,
+		N:           n,
+		ErrorLog:    log.New(logWriter, "smpp server: ", log.LstdFlags)}
 	return server.listenAndServe()
 }
 

@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"bytes"
-	"encoding/hex"
 	"fmt"
 )
 
@@ -22,15 +21,18 @@ type SmppDeliverMsgContent struct {
 }
 
 func (p *SmppDeliverMsgContent) Encode() string {
-	id, _ := hex.DecodeString(p.SubmitMsgID)
-	msgStatStr := fmt.Sprintf("id:%s sub:%s dlvrd:%s submit_date:%s done_date:%s stat:%s err:%s text:%s", id, p.Sub, p.Dlvrd, p.SubmitDate, p.DoneDate, p.Stat, p.Err, p.Txt)
+	if len(p.SubmitMsgID) != 10 || len(p.Sub) != 3 || len(p.Dlvrd) != 3 || len(p.SubmitDate) != 10 || len(p.DoneDate) != 10 || len(p.Stat) != 7 || len(p.Err) != 3 || len(p.Txt) != 20 {
+		return ""
+	}
+
+	msgStatStr := fmt.Sprintf("id:%s sub:%s dlvrd:%s submit date:%s done date:%s stat:%s err:%s text:%s", p.SubmitMsgID, p.Sub, p.Dlvrd, p.SubmitDate, p.DoneDate, p.Stat, p.Err, p.Txt)
 
 	return msgStatStr
 }
 
 func DecodeDeliverMsgContent(data []byte) *SmppDeliverMsgContent {
 	p := &SmppDeliverMsgContent{}
-	p.SubmitMsgID = hex.EncodeToString(data[3:13])
+	p.SubmitMsgID = string(data[3:13])
 	p.Sub = string(data[18:21])
 	p.Dlvrd = string(data[28:31])
 	p.SubmitDate = string(data[44:54])
