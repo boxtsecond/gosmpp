@@ -38,14 +38,17 @@ func (p *SmppDeliverMsgContent) Encode() string {
 
 func DecodeDeliverMsgContent(data []byte) *SmppDeliverMsgContent {
 	p := &SmppDeliverMsgContent{}
+	if len(data) < 109 {
+		return p
+	}
 	p.SubmitMsgID = string(data[3:13])
-	p.Sub = string(data[18:21])
-	p.Dlvrd = string(data[28:31])
-	p.SubmitDate = string(data[44:54])
-	p.DoneDate = string(data[65:75])
-	p.Stat = string(data[81:88])
-	p.Err = string(data[93:96])
-	p.Txt = string(data[102:])
+	p.Sub = string(data[17:21])
+	p.Dlvrd = string(data[27:31])
+	p.SubmitDate = string(data[43:54])
+	p.DoneDate = string(data[68:79])
+	p.Stat = string(data[88:96])
+	p.Err = string(data[100:103])
+	p.Txt = string(data[109:])
 	return p
 }
 
