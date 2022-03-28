@@ -105,15 +105,15 @@ func (c *conn) readPacket() (*Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	ver := c.server.Version
+	//ver := c.server.Version
 
 	var rsp *Response
 	switch p := i.(type) {
 	case *pkg.SmppBindTransceiverReqPkt:
-		if p.InterfaceVersion != ver {
-			return nil, pkg.NewOpError(ErrUnsupportedVersion,
-				fmt.Sprintf("readPacket: receive unsupported version: %#v", p))
-		}
+		//if p.InterfaceVersion != ver {
+		//	return nil, pkg.NewOpError(ErrUnsupportedVersion,
+		//		fmt.Sprintf("readPacket: receive unsupported version: %#v", p))
+		//}
 		rsp = &Response{
 			Packet: &Packet{
 				Packer: p,
