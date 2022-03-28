@@ -21,15 +21,16 @@ type SmppDeliverMsgContent struct {
 }
 
 func (p *SmppDeliverMsgContent) Encode() string {
-	if len(p.SubmitMsgID) != 10 || len(p.SubmitDate) != 10 || len(p.DoneDate) != 10 {
+	if len(p.SubmitDate) != 10 || len(p.DoneDate) != 10 {
 		return ""
 	}
 
+	p.SubmitMsgID = string(NewCOctetString(p.SubmitMsgID).FixedByte(10))
 	p.Sub = NewOctetString(p.Sub).FixedString(3)
 	p.Dlvrd = NewOctetString(p.Dlvrd).FixedString(3)
 	p.Stat = NewOctetString(p.Stat).FixedString(7)
 	p.Err = NewOctetString(p.Err).FixedString(3)
-	p.Txt = NewOctetString(p.Txt).FixedString(20)
+	p.Txt = string(NewCOctetString(p.Txt).FixedByte(20))
 
 	msgStatStr := fmt.Sprintf("id:%s sub:%s dlvrd:%s submit date:%s done date:%s stat:%s err:%s text:%s", p.SubmitMsgID, p.Sub, p.Dlvrd, p.SubmitDate, p.DoneDate, p.Stat, p.Err, p.Txt)
 
@@ -41,8 +42,8 @@ func DecodeDeliverMsgContent(data []byte) *SmppDeliverMsgContent {
 	if len(data) < 109 {
 		return p
 	}
-	p.SubmitMsgID = string(data[3:13])
-	p.Sub = string(data[17:21])
+	p.SubmitMsgID = string(data[3:11])
+	p.Sub = string(data[17:20])
 	p.Dlvrd = string(data[27:31])
 	p.SubmitDate = string(data[43:54])
 	p.DoneDate = string(data[68:79])
