@@ -21,9 +21,15 @@ type SmppDeliverMsgContent struct {
 }
 
 func (p *SmppDeliverMsgContent) Encode() string {
-	if len(p.SubmitMsgID) != 10 || len(p.Sub) != 3 || len(p.Dlvrd) != 3 || len(p.SubmitDate) != 10 || len(p.DoneDate) != 10 || len(p.Stat) != 7 || len(p.Err) != 3 || len(p.Txt) != 20 {
+	if len(p.SubmitMsgID) != 10 || len(p.SubmitDate) != 10 || len(p.DoneDate) != 10 {
 		return ""
 	}
+
+	p.Sub = NewOctetString(p.Sub).FixedString(3)
+	p.Dlvrd = NewOctetString(p.Dlvrd).FixedString(3)
+	p.Stat = NewOctetString(p.Stat).FixedString(7)
+	p.Err = NewOctetString(p.Err).FixedString(3)
+	p.Txt = NewOctetString(p.Txt).FixedString(20)
 
 	msgStatStr := fmt.Sprintf("id:%s sub:%s dlvrd:%s submit date:%s done date:%s stat:%s err:%s text:%s", p.SubmitMsgID, p.Sub, p.Dlvrd, p.SubmitDate, p.DoneDate, p.Stat, p.Err, p.Txt)
 
