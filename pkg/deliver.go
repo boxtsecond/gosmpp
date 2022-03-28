@@ -20,36 +20,79 @@ type SmppDeliverMsgContent struct {
 	Txt         string
 }
 
-func (p *SmppDeliverMsgContent) Encode() string {
-	if len(p.SubmitDate) != 10 || len(p.DoneDate) != 10 {
-		return ""
-	}
-
-	p.SubmitMsgID = string(NewCOctetString(p.SubmitMsgID).FixedByte(10))
-	p.Sub = NewOctetString(p.Sub).FixedString(3)
+func (p *SmppDeliverMsgContent) Encode() []byte {
+	submitMsgId := NewCOctetString(p.SubmitMsgID).FixedByte(10)
+	p.SubmitMsgID = string(submitMsgId)
+	sub := NewCOctetString(p.Sub).Byte(3)
+	p.Sub = string(sub)
 	p.Dlvrd = NewOctetString(p.Dlvrd).FixedString(3)
+	p.SubmitDate = NewOctetString(p.SubmitDate).FixedString(10)
+	p.DoneDate = NewOctetString(p.DoneDate).FixedString(10)
 	p.Stat = NewOctetString(p.Stat).FixedString(7)
 	p.Err = NewOctetString(p.Err).FixedString(3)
-	p.Txt = string(NewCOctetString(p.Txt).FixedByte(20))
+	txt := NewCOctetString(p.Txt).FixedByte(20)
+	p.Txt = string(txt)
+	var b bytes.Buffer
+	b.WriteString("id:")
+	b.Write(submitMsgId)
+	b.WriteString(" sub:")
+	b.Write(sub)
+	b.WriteString(" dlvrd:")
+	b.WriteString(p.Dlvrd)
+	b.WriteString(" submit date:")
+	b.WriteString(p.SubmitDate)
+	b.WriteString(" done date:")
+	b.WriteString(p.DoneDate)
+	b.WriteString(" stat:")
+	b.WriteString(p.Stat)
+	b.WriteString(" err:")
+	b.WriteString(p.Err)
+	b.WriteString(" text:")
+	b.Write(txt)
 
-	msgStatStr := fmt.Sprintf("id:%s sub:%s dlvrd:%s submit date:%s done date:%s stat:%s err:%s text:%s", p.SubmitMsgID, p.Sub, p.Dlvrd, p.SubmitDate, p.DoneDate, p.Stat, p.Err, p.Txt)
-
-	return msgStatStr
+	return b.Bytes()
 }
 
 func DecodeDeliverMsgContent(data []byte) *SmppDeliverMsgContent {
 	p := &SmppDeliverMsgContent{}
-	if len(data) < 109 {
-		return p
+	// 标准协议长度
+	var r = newPkgReader(data)
+	r.ReadBytes([]byte("id:"))
+	p.SubmitMsgID = string(r.ReadOCString(10))
+	r.ReadBytes([]byte(" sub:"))
+	p.Sub = string(r.ReadOCString(3))
+	r.ReadBytes([]byte(" dlvrd:"))
+	p.Dlvrd = string(r.ReadCString(3))
+	r.ReadBytes([]byte(" submit date:"))
+	p.SubmitDate = string(r.ReadCString(10))
+	r.ReadBytes([]byte(" done date:"))
+	p.DoneDate = string(r.ReadCString(10))
+	r.ReadBytes([]byte(" stat:"))
+	p.Stat = string(r.ReadCString(7))
+	r.ReadBytes([]byte(" err:"))
+	p.Err = string(r.ReadCString(3))
+	r.ReadBytes([]byte(" text:"))
+	p.Txt = string(r.ReadCString(20))
+	if r.Error() != nil {
+		var rr = newPkgReader(data)
+		rr.ReadBytes([]byte("id:"))
+		p.SubmitMsgID = string(rr.ReadOCStringBySpace())
+		rr.ReadBytes([]byte("sub:"))
+		p.Sub = string(rr.ReadOCStringBySpace())
+		rr.ReadBytes([]byte("dlvrd:"))
+		p.Dlvrd = string(rr.ReadOCStringBySpace())
+		rr.ReadBytes([]byte("submit date:"))
+		p.SubmitDate = string(rr.ReadOCStringBySpace())
+		rr.ReadBytes([]byte("done date:"))
+		p.DoneDate = string(rr.ReadOCStringBySpace())
+		rr.ReadBytes([]byte("stat:"))
+		p.Stat = string(rr.ReadOCStringBySpace())
+		rr.ReadBytes([]byte("err:"))
+		p.Err = string(rr.ReadOCStringBySpace())
+		rr.ReadBytes([]byte("text:"))
+		p.Txt = string(rr.ReadOCStringBySpace())
 	}
-	p.SubmitMsgID = string(data[3:11])
-	p.Sub = string(data[17:20])
-	p.Dlvrd = string(data[27:31])
-	p.SubmitDate = string(data[43:54])
-	p.DoneDate = string(data[68:79])
-	p.Stat = string(data[88:96])
-	p.Err = string(data[100:103])
-	p.Txt = string(data[109:])
+
 	return p
 }
 

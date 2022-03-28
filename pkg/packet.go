@@ -184,7 +184,7 @@ func (r *pkgReader) ReadBytes(s []byte) {
 
 	if n != len(s) {
 		r.err = NewOpError(fmt.Errorf("ReadBytes reads %d bytes, not equal to %d we expected", n, len(s)),
-			"pkgWriter.ReadBytes")
+			"pkgReader.ReadBytes")
 		return
 	}
 }
@@ -237,6 +237,25 @@ func (r *pkgReader) ReadOCString(maxLength int) []byte {
 			"pkgWriter.ReadOCString")
 		return nil
 	}
+	return line[:len(line)-1]
+}
+
+func (r *pkgReader) ReadOCStringBySpace() []byte {
+	if r.err != nil {
+		return nil
+	}
+
+	line, err := r.rb.ReadBytes(byte(' '))
+	if err != nil {
+		r.err = NewOpError(err,
+			"pkgReader.ReadOCString")
+		return nil
+	}
+
+	if len(line) == 0 {
+		return nil
+	}
+
 	return line[:len(line)-1]
 }
 
