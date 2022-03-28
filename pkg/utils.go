@@ -40,12 +40,12 @@ func GenNowTimeYYStr() string {
 */
 func GenMsgID(sequenceNum uint32) string {
 	now := time.Now()
-	sec := now.Second()
+	sec := now.Second() / 10
 	seqStr := fmt.Sprintf("%08d", sequenceNum)
 	if len(seqStr) > 8 {
 		seqStr = seqStr[len(seqStr)-8:]
 	}
-	return fmt.Sprintf("%02d%s", sec, seqStr)
+	return fmt.Sprintf("%d%s", sec, seqStr)
 }
 
 func Utf8ToUcs2(in string) (string, error) {
