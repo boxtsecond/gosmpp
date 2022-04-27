@@ -199,7 +199,7 @@ type SmppSubmitRespPkt struct {
 }
 
 func (p *SmppSubmitRespPkt) Pack(seqId uint32) ([]byte, error) {
-	msgId := NewCOctetString(p.MsgID).Byte(10)
+	msgId := NewCOctetString(p.MsgID).Byte(65)
 	var commandLength = HeaderPktLen + uint32(len(msgId))
 
 	var w = newPkgWriter(commandLength)
@@ -221,7 +221,7 @@ func (p *SmppSubmitRespPkt) Unpack(data []byte) error {
 	var r = newPkgReader(data)
 
 	// Body: MsgID
-	msgId := r.ReadOCString(10)
+	msgId := r.ReadOCString(65)
 	p.MsgID = string(msgId)
 	return r.Error()
 }

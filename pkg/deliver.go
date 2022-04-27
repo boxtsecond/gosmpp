@@ -21,7 +21,7 @@ type SmppDeliverMsgContent struct {
 }
 
 func (p *SmppDeliverMsgContent) Encode() []byte {
-	submitMsgId := NewCOctetString(p.SubmitMsgID).FixedByte(10)
+	submitMsgId := NewCOctetString(p.SubmitMsgID).Byte(65)
 	p.SubmitMsgID = string(submitMsgId)
 	sub := NewCOctetString(p.Sub).Byte(3)
 	p.Sub = string(sub)
@@ -58,7 +58,7 @@ func DecodeDeliverMsgContent(data []byte) *SmppDeliverMsgContent {
 	// 标准协议长度
 	var r = newPkgReader(data)
 	r.ReadBytes([]byte("id:"))
-	p.SubmitMsgID = string(r.ReadOCString(10))
+	p.SubmitMsgID = string(r.ReadOCString(65))
 	r.ReadBytes([]byte(" sub:"))
 	p.Sub = string(r.ReadOCString(3))
 	r.ReadBytes([]byte(" dlvrd:"))

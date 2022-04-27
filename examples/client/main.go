@@ -44,17 +44,67 @@ func startAClient(idx int) {
 	defer t.Stop()
 	maxSubmit := 1
 	count := 0
+
+	go func() {
+		for {
+			// recv packets
+			i, err := c.RecvAndUnpackPkt(0)
+			if err != nil {
+				log.Printf("client %d: client read and unpack pkt error: %s.", idx, err)
+				return
+			}
+
+			switch p := i.(type) {
+			case *pkg.SmppSubmitRespPkt:
+				log.Printf("client %d: receive a smpp submit response: \n%v", idx, p)
+
+			case *pkg.SmppDeliverReqPkt:
+				log.Printf("client %d: receive a smpp deliver request: \n%v", idx, p)
+				if p.EsmClass == pkg.SM_DELIVER {
+					log.Printf("client %d: the smpp deliver request: %s is a status report.", idx, p)
+				}
+				rsp := &pkg.SmppDeliverRespPkt{
+					Status: pkg.Status(0),
+				}
+
+				err := c.SendRspPkt(rsp, p.SequenceNum)
+				if err != nil {
+					log.Printf("client %d: send smpp deliver response error: %s.", idx, err)
+					break
+				} else {
+					log.Printf("client %d: send smpp deliver response ok.", idx)
+				}
+
+			case *pkg.SmppEnquireLinkReqPkt:
+				log.Printf("client %d: receive a smpp active request.", idx)
+				rsp := &pkg.SmppEnquireLinkRespPkt{}
+				err := c.SendRspPkt(rsp, p.SequenceNum)
+				if err != nil {
+					log.Printf("client %d: send smpp active response error: %s.", idx, err)
+					break
+				}
+			case *pkg.SmppEnquireLinkRespPkt:
+				log.Printf("client %d: receive a smpp active response.", idx)
+
+			case *pkg.SmppUnbindReqPkt:
+				log.Printf("client %d: receive a smpp unbind request.", idx)
+				rsp := &pkg.SmppUnbindRespPkt{}
+				err := c.SendRspPkt(rsp, p.SequenceNum)
+				if err != nil {
+					log.Printf("client %d: send smpp unbind response error: %s.", idx, err)
+					break
+				}
+			case *pkg.SmppUnbindRespPkt:
+				log.Printf("client %d: receive a smpp unbind response.", idx)
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-t.C:
 			if count >= maxSubmit {
 				continue
-			}
-
-			cont, err := pkg.Utf8ToUcs2(*msg)
-			if err != nil {
-				fmt.Printf("client %d: utf8 to ucs2 transform err: %s.", idx, err)
-				return
 			}
 
 			p := &pkg.SmppSubmitReqPkt{
@@ -63,19 +113,14 @@ func startAClient(idx int) {
 				PriorityFlag:       pkg.NORMAL_PRIORITY,
 				RegisteredDelivery: pkg.NEED_REPORT,
 				DataCoding:         pkg.UCS2,
-				SmLength:           uint8(len(cont)),
-				ShortMessage:       cont,
+				ShortMessage:       *msg,
 			}
-			pkgs := make([]*pkg.SmppSubmitReqPkt, 0)
 
-			if len(cont) > 140 {
-				pkgs, err = pkg.GetMsgPkgs(p)
-				if err != nil {
-					log.Printf("client %d: get long msg pkg error: %s.", idx, err)
-					continue
-				}
-			} else {
-				pkgs = append(pkgs, p)
+			pkgs, err := pkg.GetMsgPkgs(p)
+			fmt.Println(len(pkgs))
+			if err != nil {
+				log.Printf("client %d: get long msg pkg error: %s.", idx, err)
+				continue
 			}
 
 			for _, req := range pkgs {
@@ -89,57 +134,6 @@ func startAClient(idx int) {
 			}
 			count += 1
 		default:
-		}
-
-		// recv packets
-		i, err := c.RecvAndUnpackPkt(0)
-		if err != nil {
-			log.Printf("client %d: client read and unpack pkt error: %s.", idx, err)
-			break
-		}
-
-		switch p := i.(type) {
-		case *pkg.SmppSubmitRespPkt:
-			log.Printf("client %d: receive a smpp submit response: \n%v", idx, p)
-
-		case *pkg.SmppDeliverReqPkt:
-			log.Printf("client %d: receive a smpp deliver request: \n%v", idx, p)
-			if p.EsmClass == pkg.SM_DELIVER {
-				log.Printf("client %d: the smpp deliver request: %s is a status report.", idx, p)
-			}
-			rsp := &pkg.SmppDeliverRespPkt{
-				Status: pkg.Status(0),
-			}
-
-			err := c.SendRspPkt(rsp, p.SequenceNum)
-			if err != nil {
-				log.Printf("client %d: send smpp deliver response error: %s.", idx, err)
-				break
-			} else {
-				log.Printf("client %d: send smpp deliver response ok.", idx)
-			}
-
-		case *pkg.SmppEnquireLinkReqPkt:
-			log.Printf("client %d: receive a smpp active request.", idx)
-			rsp := &pkg.SmppEnquireLinkRespPkt{}
-			err := c.SendRspPkt(rsp, p.SequenceNum)
-			if err != nil {
-				log.Printf("client %d: send smpp active response error: %s.", idx, err)
-				break
-			}
-		case *pkg.SmppEnquireLinkRespPkt:
-			log.Printf("client %d: receive a smpp active response.", idx)
-
-		case *pkg.SmppUnbindReqPkt:
-			log.Printf("client %d: receive a smpp unbind request.", idx)
-			rsp := &pkg.SmppUnbindRespPkt{}
-			err := c.SendRspPkt(rsp, p.SequenceNum)
-			if err != nil {
-				log.Printf("client %d: send smpp unbind response error: %s.", idx, err)
-				break
-			}
-		case *pkg.SmppUnbindRespPkt:
-			log.Printf("client %d: receive a smpp unbind response.", idx)
 		}
 	}
 }
