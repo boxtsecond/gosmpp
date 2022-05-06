@@ -114,6 +114,10 @@ func (p *SmppBindTransceiverRespPkt) Unpack(data []byte) error {
 	var r = newPkgReader(data)
 	systemId := r.ReadOCString(16)
 	p.SystemID = string(systemId)
+
+	if len(systemId)+1 > len(data) {
+		return r.Error()
+	}
 	options, err := ParseOptions(data[len(systemId)+1:])
 	if err != nil {
 		return err
