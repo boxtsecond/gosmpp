@@ -13,7 +13,6 @@ import (
 const (
 	user     string = "100"
 	password string = "12345678"
-	spId     string = "123456"
 )
 
 func handleLogin(r *server.Response, p *server.Packet) (bool, error) {

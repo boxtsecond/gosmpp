@@ -220,9 +220,11 @@ func (p *SmppSubmitRespPkt) Pack(seqId uint32) ([]byte, error) {
 func (p *SmppSubmitRespPkt) Unpack(data []byte) error {
 	var r = newPkgReader(data)
 
-	// Body: MsgID
-	msgId := r.ReadOCString(65)
-	p.MsgID = string(msgId)
+	if len(data) > 0 {
+		// Body: MsgID
+		msgId := r.ReadOCString(65)
+		p.MsgID = string(msgId)
+	}
 	return r.Error()
 }
 

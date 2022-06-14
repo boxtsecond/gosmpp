@@ -112,12 +112,11 @@ func startAClient(idx int) {
 				EsmClass:           0,
 				PriorityFlag:       pkg.NORMAL_PRIORITY,
 				RegisteredDelivery: pkg.NEED_REPORT,
-				DataCoding:         pkg.UCS2,
+				DataCoding:         pkg.ASCII,
 				ShortMessage:       *msg,
 			}
 
 			pkgs, err := pkg.GetMsgPkgs(p)
-			fmt.Println(len(pkgs))
 			if err != nil {
 				log.Printf("client %d: get long msg pkg error: %s.", idx, err)
 				continue
