@@ -194,6 +194,10 @@ func (r *pkgReader) ReadCString(length int) []byte {
 		return nil
 	}
 
+	if r.rb.Len() == 0 {
+		return nil
+	}
+
 	var tmp = r.cbuf[:length]
 	n, err := r.rb.Read(tmp)
 	if err != nil {
