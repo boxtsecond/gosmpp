@@ -142,6 +142,9 @@ func newPkgReader(data []byte) *pkgReader {
 		rb: bytes.NewBuffer(data),
 	}
 }
+func (r *pkgReader) Len() int {
+	return r.rb.Len()
+}
 
 func (r *pkgReader) ReadByte() byte {
 	if r.err != nil {
@@ -191,10 +194,6 @@ func (r *pkgReader) ReadBytes(s []byte) {
 
 func (r *pkgReader) ReadCString(length int) []byte {
 	if r.err != nil {
-		return nil
-	}
-
-	if r.rb.Len() == 0 {
 		return nil
 	}
 

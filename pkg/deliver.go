@@ -66,7 +66,10 @@ func DecodeDeliverMsgContent(data []byte) *SmppDeliverMsgContent {
 	rr.ReadBytes([]byte("err:"))
 	p.Err = string(rr.ReadOCStringBySpace())
 	rr.ReadBytes([]byte("text:"))
-	p.Txt = string(rr.ReadCString(20))
+	if rr.Len() != 0 {
+		p.Txt = string(rr.ReadCString(20))
+	}
+
 	if rr.Error() != nil {
 		var r = newPkgReader(data)
 		r.ReadBytes([]byte("id:"))
